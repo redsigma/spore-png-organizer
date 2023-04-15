@@ -4,6 +4,13 @@ https://github.com/Spore-Community/PNG-Downloader
 
 The script acts as a helper to organize the downloaded creatures (png files) so you dont need to manually copy them to `My Spore Creations` folder or drag and drop each of them in the spore window.
 
+## First time run
+
+If this is the first time you run this script then please run the following command first:
+
+python3 -m pip install -r ./requirements.txt
+- this will install the required python libraries that are needed by this script
+
 
 ## Usage
 
