@@ -295,6 +295,16 @@ def has_all_tags(xml_binary_data, xml_tags : dict):
 
 
 ###############################################################################
+def is_image_cell(creature_metadata):
+    creature_type_id = creature_metadata["tid"]
+    types = [1033349348]
+    if creature_type_id in types:
+        return True
+    
+    return False
+
+
+###############################################################################
 def is_image_creature(creature_metadata):
     creature_type_id = creature_metadata["tid"]
     types = [731352134]
@@ -448,9 +458,12 @@ def add_to_folder_structure(creature_content: dict, file_path: str):
         
     elif is_image_building(metadata):
         save_creature("Buildings", file_path, creature_content)
-        
+    
     elif is_image_adventure(metadata):
-        save_creature("Adventures", file_path, creature_content)       
+        save_creature("Adventures", file_path, creature_content)
+        
+    elif is_image_cell(metadata):
+        save_creature("Cells", file_path, creature_content)
         
     else:
         save_creature("OTHER", file_path, creature_content)
