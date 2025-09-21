@@ -57,18 +57,60 @@ def read_header(data):
         18   %02x	                 count of following %08x (unused?)
         19   %08x	    trail       repeats for previous count
     """
+    def peek(n):
+        return ret[0][:n]
+
     def pop(n):
-        d = ret[0][:n]
+        d = peek(n)
         ret[0] = ret[0][n:]
         ret["meta_raw"] += d
         return d
     
-    def pop_int(name, width):
-        ret["meta"][name] = int(pop(width), 16)
+    def pop_hex_as_int(width):
+        return int(pop(width), 16)
 
-    def pop_str(name, width, mul=1):
-        ret["meta"][name] = pop(mul * int(pop(width), 16)).decode("utf-8")
-    
+    def pop_int(name, width):
+        ret["meta"][name] = pop_hex_as_int(width)
+        
+    def pop_str(name, width):
+        """
+            Accounts for multibyte characters by counting characters, not bytes
+        """
+        import codecs
+
+        n_chars = pop_hex_as_int(width)
+        dec = codecs.getincrementaldecoder("utf-8")()
+        chars_seen = 0
+        bytes_used = 0
+
+        while chars_seen < n_chars:
+            if bytes_used >= len(data):
+                break
+            b = data[bytes_used:bytes_used+1]
+            out = dec.decode(b, final=False)
+            bytes_used += 1
+            if out:
+                chars_seen += len(out)
+
+        # trim the string after decode
+        raw = pop(bytes_used)
+        s = raw.decode("utf-8")
+        ret["meta"][name] = s[:n_chars]
+
+    def pop_trail():
+        if len(ret[0]) < 2:
+            return
+        
+        try:
+            int(peek(2), 16)
+        except:
+            # skip if ending has only partial multibyte characters
+            return
+
+        count = pop_hex_as_int(2)
+        trails = [pop_hex_as_int(8) for _ in range(count)]
+        ret["meta"]["trail"] = trails
+
     ret = {0: data, "meta":{}, "meta_raw": b''}
  
     if not pop(5) == b'spore':
@@ -80,21 +122,20 @@ def read_header(data):
     pop_int('id',      8)
     pop_int('mid',     8)
     pop_int('cid',    16)
+    pop_int('time',   16)
 
     # Adding the parent
     if ret["meta"]['version'] == 6:
         pop_int('parent',16)
 
-    pop_int('time',   16)
-
     pop_str('uname',   2)
-
     pop_int('uid',    16)
 
     pop_str('name',    2)
     pop_str('desc',    3)
     pop_str('tags',    2)
-    pop_str('trail',   2, 8)
+
+    pop_trail()
 
     return {"xml": ret[0], "meta": ret["meta"], "meta_raw": ret["meta_raw"]}
 
