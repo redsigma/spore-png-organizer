@@ -8,13 +8,18 @@ The script acts as a helper to organize the downloaded creatures (png files) so 
 
 If this is the first time you run this script then please run the following command first:
 
+
+```batch
 python3 -m pip install -r ./requirements.txt
+```
 - this will install the required python libraries that are needed by this script
 
 
 ## Usage
 
-python3 spore_png_organizer.py --source_directory "D:\downloaded_pngs" --target_directory" "D:\my_spore_stuff"
+```batch
+python3 spore_png_organizer.py --source_directory "D:\downloaded_pngs" --target_directory "D:\my_spore_stuff"
+```
 - this will create a folder called `spore_creations` in `D:\my_spore_stuff\` and in this folder will contain the folder structure from `C:\Users\<USER>\Documents\My Spore Creations\`
 - use `--help` to see other useful options
 
@@ -22,4 +27,4 @@ python3 spore_png_organizer.py --source_directory "D:\downloaded_pngs" --target_
 ## Notes
 
 - In case the type of the png file cannot be detected (if it's a creature, building, adventure, etc.) then it will be saved in an `UNKNOWN` sub-folder
-- If a png file contains incomplete data, then the file will be saved in in an `INCOMPLETE` sub-folder. Sometimes incomplete creatures can cause spore to crash, although it I had this problem with complete creatures too so the problem might be something else.
+- If a png file contains incomplete data, then the file will be saved in an `INCOMPLETE` sub-folder. Sometimes incomplete creatures can cause spore to crash, although I had this problem with complete creatures too so the problem might be something else.
