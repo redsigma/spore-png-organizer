@@ -248,37 +248,31 @@ def decode_creature(file):
 
 
 ###############################################################################
-def decode_data(data, length_data: int):
+def decode_data(data):
     import zlib
-    
+    HEADER_SIZE = 8
+
     decompressed_data = b''
-    is_data_incomplete = False
     try:
-        decoded_data = data[8: 8 + length_data]
-        decompressed_data = zlib.decompress(decoded_data)
-        
+        is_data_incomplete = False
+
+        decompressor = zlib.decompressobj()
+        decompressed_data = decompressor.decompress(data[HEADER_SIZE:]) + decompressor.flush()
+
     except zlib.error as err:
         is_data_incomplete = True
-    
-    if is_data_incomplete:
-        try:
-            decompressor = zlib.decompressobj()
-            decompressed_data = decompressor.decompress(data[8: 8 + length_data], length_data)
-        except zlib.error as err:
-            return b''
+        decompressed_data = b''
         
     return is_data_incomplete, decompressed_data
 
 
 ###############################################################################
 def decode_creature_helper(image_data):
-    import struct
-
     stream = Decoder(image_data)
     data = stream.get_data()
-    length = struct.unpack("<L", data[4:8])[0]
 
-    is_incomplete, decompressed_data = decode_data(data, length)
+    is_incomplete, decompressed_data = decode_data(data)
+
     creature_data = read_header(decompressed_data)
     creature_data["incomplete"] = is_incomplete
     
