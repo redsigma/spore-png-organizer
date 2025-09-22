@@ -72,30 +72,11 @@ def read_header(data):
     def pop_int(name, width):
         ret["meta"][name] = pop_hex_as_int(width)
         
-    def pop_str(name, width):
-        """
-            Accounts for multibyte characters by counting characters, not bytes
-        """
-        import codecs
-
-        n_chars = pop_hex_as_int(width)
-        dec = codecs.getincrementaldecoder("utf-8")()
-        chars_seen = 0
-        bytes_used = 0
-
-        while chars_seen < n_chars:
-            if bytes_used >= len(data):
-                break
-            b = data[bytes_used:bytes_used+1]
-            out = dec.decode(b, final=False)
-            bytes_used += 1
-            if out:
-                chars_seen += len(out)
-
-        # trim the string after decode
-        raw = pop(bytes_used)
-        s = raw.decode("utf-8")
-        ret["meta"][name] = s[:n_chars]
+    def pop_str(name: str, width: int):
+        n_bytes = pop_hex_as_int(width)
+        if len(ret[0]) < n_bytes:
+            return
+        ret["meta"][name] = pop(n_bytes).decode("utf-8")
 
     def pop_trail():
         if len(ret[0]) < 2:
