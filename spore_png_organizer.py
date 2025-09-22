@@ -486,10 +486,35 @@ def add_to_folder_structure(creature_content: dict, file_path: str):
 
 
 ###############################################################################
+def normalize_string(input_string: str):
+    import string
+
+    # replace spaces and commas with underscores
+    trans = str.maketrans({
+        " ": "_",
+        ",": "_"
+    })
+    s = input_string.translate(trans)
+
+    # keep only allowed characters (letters, digits, underscore)
+    allowed = set(string.ascii_letters + string.digits + "_")
+    s = "".join(ch for ch in s if ch in allowed)
+
+    # collapse multiple underscores
+    while "__" in s:
+        s = s.replace("__", "_")
+
+    # strip leading/trailing underscores
+    return s.strip("_")
+
+
+###############################################################################
 def make_output_filename(creature_content: dict):
     author = creature_content["meta"]["uname"]
     creature_name = creature_content["meta"]["name"]
-    output_filename = f"{author}_{creature_name}"
+    creature_id = creature_content["meta"]["id"]
+    output_filename = f"{author}_{creature_name}_{creature_id}"
+    output_filename = normalize_string(output_filename)
     return output_filename
 
 
