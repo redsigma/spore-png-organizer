@@ -70,13 +70,21 @@ def read_header(data):
         return int(pop(width), 16)
 
     def pop_int(name, width):
-        ret["meta"][name] = pop_hex_as_int(width)
+        try:
+            ret["meta"][name] = pop_hex_as_int(width)
+        except:
+            ret["incomplete"] = True
         
     def pop_str(name: str, width: int):
-        n_bytes = pop_hex_as_int(width)
-        if len(ret[0]) < n_bytes:
-            return
-        ret["meta"][name] = pop(n_bytes).decode("utf-8")
+        try:
+            n_bytes = pop_hex_as_int(width)
+            if len(ret[0]) < n_bytes:
+                ret["incomplete"] = True
+                return
+            
+            ret["meta"][name] = pop(n_bytes).decode("utf-8")
+        except:
+            ret["incomplete"] = True
 
     def pop_trail():
         if len(ret[0]) < 2:
@@ -88,37 +96,44 @@ def read_header(data):
             # skip if ending has only partial multibyte characters
             return
 
-        count = pop_hex_as_int(2)
-        trails = [pop_hex_as_int(8) for _ in range(count)]
-        ret["meta"]["trail"] = trails
+        try:
+            count = pop_hex_as_int(2)
+            trails = [pop_hex_as_int(8) for _ in range(count)]
+            ret["meta"]["trail"] = trails
+        except:
+            ret["incomplete"] = True
 
-    ret = {0: data, "meta":{}, "meta_raw": b''}
+    ret = {0: data, "meta":{}, "meta_raw": b'', "incomplete": False}
  
     if not pop(5) == b'spore':
-        raise ValueError
+        ret["incomplete"] = True
+        
+    if not ret["incomplete"]:
+        pop_int('version', 4)
+        pop_int('tid',     8)
+        pop_int('gid',     8)
+        pop_int('id',      8)
+        pop_int('mid',     8)
+        pop_int('cid',    16)
+        pop_int('time',   16)
 
-    pop_int('version', 4)
-    pop_int('tid',     8)
-    pop_int('gid',     8)
-    pop_int('id',      8)
-    pop_int('mid',     8)
-    pop_int('cid',    16)
-    pop_int('time',   16)
+        # Adding the parent
+        if ret["meta"].get('version', -1) == 6:
+            pop_int('parent',16)
 
-    # Adding the parent
-    if ret["meta"]['version'] == 6:
-        pop_int('parent',16)
+        pop_str('uname',   2)
+        pop_int('uid',    16)
 
-    pop_str('uname',   2)
-    pop_int('uid',    16)
+        pop_str('name',    2)
+        pop_str('desc',    3)
+        pop_str('tags',    2)
 
-    pop_str('name',    2)
-    pop_str('desc',    3)
-    pop_str('tags',    2)
+        pop_trail()
 
-    pop_trail()
-
-    return {"xml": ret[0], "meta": ret["meta"], "meta_raw": ret["meta_raw"]}
+    has_any_data = len(ret["meta"]) > 0
+    if has_any_data:
+        return {"xml": ret[0], "meta": ret["meta"], "meta_raw": ret["meta_raw"], "incomplete": ret["incomplete"]}
+    return None
 
 
 ###############################################################################
@@ -254,16 +269,13 @@ def decode_data(data):
 
     decompressed_data = b''
     try:
-        is_data_incomplete = False
-
         decompressor = zlib.decompressobj()
         decompressed_data = decompressor.decompress(data[HEADER_SIZE:]) + decompressor.flush()
 
     except zlib.error as err:
-        is_data_incomplete = True
         decompressed_data = b''
         
-    return is_data_incomplete, decompressed_data
+    return decompressed_data
 
 
 ###############################################################################
@@ -271,30 +283,17 @@ def decode_creature_helper(image_data):
     stream = Decoder(image_data)
     data = stream.get_data()
 
-    is_incomplete, decompressed_data = decode_data(data)
-
+    decompressed_data = decode_data(data)
     creature_data = read_header(decompressed_data)
-    creature_data["incomplete"] = is_incomplete
     
     return creature_data
 
 
 ###############################################################################
-def decode_creature_with_extra_data_helper(extra, image_data):
-    import struct
-
-    stream = Decoder(image_data)
-    length_data = bytearray(8)
-    stream.decode(length_data)
-    
-    length = struct.unpack("<i", length_data[4:len(length_data)])[0]
-    if (length < 0):
-        length = -length
-    
-    is_incomplete, decompressed_data = decode_data(extra, length)
+def decode_creature_with_extra_data_helper(extra, image_data):    
+    decompressed_data = decode_data(extra)
     creature_data = read_header(decompressed_data)
-    creature_data["incomplete"] = is_incomplete
-    
+
     return creature_data
 
 
@@ -312,7 +311,7 @@ def has_all_tags(xml_binary_data, xml_tags : dict):
 
 ###############################################################################
 def is_image_cell(creature_metadata):
-    creature_type_id = creature_metadata["tid"]
+    creature_type_id = creature_metadata.get("tid", -1)
     types = [1033349348]
     if creature_type_id in types:
         return True
@@ -322,7 +321,7 @@ def is_image_cell(creature_metadata):
 
 ###############################################################################
 def is_image_creature(creature_metadata):
-    creature_type_id = creature_metadata["tid"]
+    creature_type_id = creature_metadata.get("tid", -1)
     types = [731352134]
     if creature_type_id in types:
         return True
@@ -332,7 +331,7 @@ def is_image_creature(creature_metadata):
 
 ###############################################################################
 def is_image_vehicle(creature_metadata):
-    creature_type_id = creature_metadata["tid"]
+    creature_type_id = creature_metadata.get("tid", -1)
     types = [610804372]
     if creature_type_id in types:
         return True
@@ -342,7 +341,7 @@ def is_image_vehicle(creature_metadata):
 
 ###############################################################################
 def is_image_spaceship(creature_metadata):
-    creature_type_id = creature_metadata["tid"]
+    creature_type_id = creature_metadata.get("tid", -1)
     types = [1198168263]
     if creature_type_id in types:
         return True
@@ -352,7 +351,7 @@ def is_image_spaceship(creature_metadata):
 
 ###############################################################################
 def is_image_building(creature_metadata):
-    creature_type_id = creature_metadata["tid"]
+    creature_type_id = creature_metadata.get("tid", -1)
     types = [597278293]
     if creature_type_id in types:
         return True
@@ -362,7 +361,7 @@ def is_image_building(creature_metadata):
 
 ###############################################################################
 def is_image_adventure(creature_metadata):
-    creature_type_id = creature_metadata["tid"]
+    creature_type_id = creature_metadata.get("tid", -1)
     types = [912954125]
     if creature_type_id in types:
         return True
@@ -456,7 +455,7 @@ def dump_json_header_to_folder(output_filename: str, output_path: str, content_t
 def add_to_folder_structure(creature_content: dict, file_path: str):
     data_not_parsed = not creature_content
     if data_not_parsed:
-        destination_filename = make_output_filename(creature_content)
+        destination_filename = make_output_filename(creature_content, file_path)
         destination_path = make_output_destination("UNKNOWN")
         add_to_folder(destination_filename, destination_path, file_path)
         return
@@ -509,10 +508,17 @@ def normalize_string(input_string: str):
 
 
 ###############################################################################
-def make_output_filename(creature_content: dict):
+def make_output_filename(creature_content: dict, default_name: str):
+    from pathlib import Path
+
+    if not creature_content:
+        path = Path(default_name)
+        return path.name
+   
     author = creature_content["meta"]["uname"]
     creature_name = creature_content["meta"]["name"]
     creature_id = creature_content["meta"]["id"]
+
     output_filename = f"{author}_{creature_name}_{creature_id}"
     output_filename = normalize_string(output_filename)
     return output_filename
@@ -532,14 +538,9 @@ def make_output_destination(folder_name : str, has_incomplete_data: bool = False
 
 ###############################################################################
 def save_creature(folder_name: str, source_file_path: str, creature_content: dict):
-    xml_content = creature_content["xml"]
-    
-    metadata = creature_content["meta_raw"].decode('utf-8')
-    xml_content = bytes(f'{metadata}{xml_content}', encoding='utf-8')
-     
     has_incomplete_data = creature_content["incomplete"]
 
-    destination_filename = make_output_filename(creature_content)
+    destination_filename = make_output_filename(creature_content, source_file_path)
     destination_path = make_output_destination(folder_name, has_incomplete_data)
 
     if args.dump_header_as_json:
@@ -547,6 +548,10 @@ def save_creature(folder_name: str, source_file_path: str, creature_content: dic
         dump_json_header_to_folder(destination_filename, destination_path, json_wannabe_content)  
 
     if args.dump_xml:
+        xml_content = creature_content["xml"]
+        metadata = creature_content["meta_raw"].decode('utf-8')
+        xml_content = bytes(f'{metadata}{xml_content}', encoding='utf-8')
+
         dump_xml_to_folder(destination_filename, destination_path, xml_content)
 
     if args.skip_file_copy:
